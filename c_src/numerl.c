@@ -121,7 +121,7 @@ int enif_is_matrix(ErlNifEnv* env, ERL_NIF_TERM term){
 }
 
 //Reads an erlang term as a matrix.
-//As such, no modifications can be made to the red matrix.
+//As such, no modifications can be made to the read matrix.
 //Returns true if it was possible to read a matrix, false otherwise
 int enif_get_matrix(ErlNifEnv* env, ERL_NIF_TERM term, Matrix *dest){
     
@@ -615,7 +615,6 @@ ERL_NIF_TERM nif_inv(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 
     dgetrf_(&N,&N,inv.content,&N,IPIV,&INFO1);
     dgetri_(&N,inv.content,&N,IPIV,WORK,&LWORK,&INFO2);
-
     
     enif_free(IPIV);
     enif_free(WORK);
@@ -746,7 +745,7 @@ ERL_NIF_TERM nif_dgemm(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
     A.n_rows, B.n_cols, A.n_cols,
     alpha, A.content, A.n_cols, B.content, B.n_rows, 
-    1.0, C.content, C.n_cols);
+    beta, C.content, C.n_cols);
 
     return matrix_to_erl(env, C);
 }

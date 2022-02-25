@@ -1,6 +1,7 @@
 -module(numerl_tests).
 -include_lib("eunit/include/eunit.hrl").
 
+
 matrix_test() ->
     M0 = [[1.0, 0.0], [0.0, 1.0]],
     _ = numerl:matrix(M0).
@@ -75,20 +76,20 @@ eye_test() ->
 
 
 add_test()->
-     CM0 = numerl:matrix([[1, 2], [3, 4]]),
-     CM1 = numerl:matrix([[2, 4], [6, 8]]),
-     CM3 = numerl:matrix([[2, 3], [4, 5]]),
-     true = numerl:equals(CM1, numerl:add(CM0, CM0)),
-     true = numerl:equals(CM3, numerl:add(CM0,1)).
+    CM0 = numerl:matrix([[1, 2], [3, 4]]),
+    CM1 = numerl:matrix([[2, 4], [6, 8]]),
+    CM3 = numerl:matrix([[2, 3], [4, 5]]),
+    true = numerl:equals(CM1, numerl:add(CM0, CM0)),
+    true = numerl:equals(CM3, numerl:add(CM0,1)).
 
 
 sub_test()->
-     CM0 = numerl:matrix([[1, 2], [3, 4]]),
-     CM1 = numerl:matrix([[2, 4], [6, 8]]),
-     CM3 = numerl:matrix([[-1, -2], [-3, -4]]),
-     CM4 = numerl:matrix([[0, 1], [2, 3]]),
-     true = numerl:equals(CM3, numerl:sub(CM0, CM1)),
-     true = numerl:equals(CM4, numerl:sub(CM0,1)).
+    CM0 = numerl:matrix([[1, 2], [3, 4]]),
+    CM1 = numerl:matrix([[2, 4], [6, 8]]),
+    CM3 = numerl:matrix([[-1, -2], [-3, -4]]),
+    CM4 = numerl:matrix([[0, 1], [2, 3]]),
+    true = numerl:equals(CM3, numerl:sub(CM0, CM1)),
+    true = numerl:equals(CM4, numerl:sub(CM0,1)).
 
 mult_test()->
     CM0 = numerl:matrix([[1, 2], [3, 4]]),
@@ -133,7 +134,7 @@ tr_test() ->
 inv_test() ->
     %Might cause an error if randomly generated matrix is singular.
     F = fun()->
-        N = rand:uniform(20),
+        N = rand:uniform(17),
         M = numerl:rnd_matrix(N),
         M_inv = numerl:inv(M),
         numerl:equals(numerl:dot(M, M_inv), numerl:eye(N))
@@ -151,9 +152,9 @@ vec_dot_test() ->
     4.0 = numerl:vec_dot(Ones, Ones).
 
 dot_test()->
-    A = numerl:matrix([[1,2]]),
-    B = numerl:matrix([[3,4], [5,6]]),
-    true = numerl:equals(numerl:matrix([[13, 16]]), numerl:dot(A,B)).
+    A = numerl:matrix([[4,2],[2,2]]),
+    B = numerl:matrix([[3,5],[5,4]]),
+    true = numerl:equals(numerl:matrix([[22, 28],[16,18]]), numerl:dot(A,B)).
 
 memleak_test()->
     %For input matrices of size 10: run all function once, check memory, run a couple more times, check if memory increase.
