@@ -314,14 +314,17 @@ ERL_NIF_TERM nif_mtfli(ErlNifEnv * env, int argc, const ERL_NIF_TERM argv[]){
         return enif_make_badarg(env);
     }
 
-    int n_elems = M.n_cols * M.n_rows;
-    ERL_NIF_TERM *arr = enif_alloc(sizeof(ERL_NIF_TERM)*n_elems);
-    for(int i = 0; i<n_elems; i++){
-        arr[i] = enif_make_int(env, (int)M.content[i]);
+    ERL_NIF_TERM *mat = enif_alloc(sizeof(ERL_NIF_TERM)*M.n_rows);
+    for (int i=0;i<M.n_rows;i++){
+        ERL_NIF_TERM *row = enif_alloc(sizeof(ERL_NIF_TERM)*M.n_cols);
+        for (int j=0;j<M.n_cols;j++){
+            row[j] = enif_make_int(env, (int)M.content[(i*M.n_rows)+j]);
+        }
+        mat[i]=enif_make_list_from_array(env, row, M.n_cols);
     }
     
-    ERL_NIF_TERM result = enif_make_list_from_array(env, arr, n_elems);
-    enif_free(arr);
+    ERL_NIF_TERM result = enif_make_list_from_array(env, mat, M.n_rows);
+    enif_free(mat);
     return result;
 }
 
@@ -332,14 +335,17 @@ ERL_NIF_TERM nif_mtfl(ErlNifEnv * env, int argc, const ERL_NIF_TERM argv[]){
         return enif_make_badarg(env);
     }
 
-    int n_elems = M.n_cols * M.n_rows;
-    ERL_NIF_TERM *arr = enif_alloc(sizeof(ERL_NIF_TERM)*n_elems);
-    for(int i = 0; i<n_elems; i++){
-        arr[i] = enif_make_double(env, M.content[i]);
+    ERL_NIF_TERM *mat = enif_alloc(sizeof(ERL_NIF_TERM)*M.n_rows);
+    for (int i=0;i<M.n_rows;i++){
+        ERL_NIF_TERM *row = enif_alloc(sizeof(ERL_NIF_TERM)*M.n_cols);
+        for (int j=0;j<M.n_cols;j++){
+            row[j] = enif_make_double(env, (double) M.content[(i*M.n_rows)+j]);
+        }
+        mat[i]=enif_make_list_from_array(env, row, M.n_cols);
     }
     
-    ERL_NIF_TERM result = enif_make_list_from_array(env, arr, n_elems);
-    enif_free(arr);
+    ERL_NIF_TERM result = enif_make_list_from_array(env, mat, M.n_rows);
+    enif_free(mat);
     return result;
 }
 

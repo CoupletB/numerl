@@ -27,10 +27,10 @@ at_test()->
     2.0 = numerl:at(numerl:matrix([[2,3,4]]), 1).
 
 mtfli_test()->
-    [1,2,3] = numerl:mtfli(numerl:matrix([[1.1, 2.9, 3]])).
+    [[1,2,3]] = numerl:mtfli(numerl:matrix([[1.1, 2.9, 3]])).
 
 mtfl_test()->
-    [1.1,2.1,3.4] = numerl:mtfl(numerl:matrix([[1.1, 2.1, 3.4]])).
+    [[1.1,2.1,3.4]] = numerl:mtfl(numerl:matrix([[1.1, 2.1, 3.4]])).
 
 equal_test() ->
     M0 = [[1.0, 2.0], [3.0, 4.0]],
