@@ -754,7 +754,7 @@ ERL_NIF_TERM nif_dgemm(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
     A.n_rows, B.n_cols, A.n_cols,
-    alpha, A.content, A.n_cols, B.content, B.n_rows, 
+    alpha, A.content, A.n_cols, B.content, B.n_cols, 
     beta, C.content, C.n_cols);
 
     return matrix_to_erl(env, C);
