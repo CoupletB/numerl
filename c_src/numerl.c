@@ -694,20 +694,19 @@ ERL_NIF_TERM nif_daxpy(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
     int n;
     double alpha;
 
-    if(!enif_get(env, argv, "inmm", &n, &alpha, &x, &y)){
-        return enif_make_badarg(env);
-    }
-    
-    if(fmin(x.n_rows, x.n_cols) * fmin(y.n_rows, y.n_cols) != 1){
-        //We are not using vectors...
+    if(!enif_get(env, argv, "nmm", &alpha, &x, &y)){
         return enif_make_badarg(env);
     }
 
-    Matrix ny = matrix_dup(y);
+    n = x.n_cols*x.n_rows;
 
-    cblas_daxpy(n, alpha, x.content, 1, ny.content, 1);
+    if(n != y.n_cols*y.n_rows){
+        return enif_make_badarg(env);
+    }
 
-    return matrix_to_erl(env, ny);
+    cblas_daxpy(n, alpha, x.content, 1, y.content, 1);
+
+    return atom_true;
 }
 
 // Arguments: alpha, A, x, beta, y
@@ -781,7 +780,8 @@ ErlNifFunc nif_funcs[] = {
     //--- BLAS----------
     {"nrm2", 1, nif_dnrm2},
     {"vec_dot", 2, nif_ddot},
-    {"dot", 2, nif_dgemm}
+    {"dot", 2, nif_dgemm},
+    {"daxpy", 3, nif_daxpy}
 };
 
 ERL_NIF_INIT(numerl, nif_funcs, load, NULL, upgrade, NULL)

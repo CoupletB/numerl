@@ -82,6 +82,12 @@ add_test()->
     true = numerl:equals(CM1, numerl:add(CM0, CM0)),
     true = numerl:equals(CM3, numerl:add(CM0,1)).
 
+daxpy_test()->
+    CM0 = numerl:matrix([[1, 2], [3, 4]]),
+    CM1 = numerl:matrix([[2, 4], [6, 8]]),
+    true = numerl:daxpy(1, CM0, CM1),
+    true = numerl:equals(CM1, numerl:matrix([[3, 6],[9, 12]])).
+
 
 sub_test()->
     CM0 = numerl:matrix([[1, 2], [3, 4]]),
