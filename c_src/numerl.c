@@ -759,6 +759,19 @@ ERL_NIF_TERM nif_dgemm(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
     return matrix_to_erl(env, C);
 }
 
+ERL_NIF_TERM nif_dscal(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
+    Matrix X;
+    double alpha;
+
+    if(!enif_get(env, argv, "nm", &alpha, &X)){
+        return enif_make_badarg(env);
+    }
+
+    int n = X.n_cols*X.n_rows;
+    cblas_dscal(n, alpha, X.content, 1);
+    return atom_true;
+}
+
 ErlNifFunc nif_funcs[] = {
     {"matrix", 1, nif_matrix},
     {"get", 3, nif_get},
@@ -781,7 +794,8 @@ ErlNifFunc nif_funcs[] = {
     {"nrm2", 1, nif_dnrm2},
     {"vec_dot", 2, nif_ddot},
     {"dot", 2, nif_dgemm},
-    {"daxpy", 3, nif_daxpy}
+    {"daxpy", 3, nif_daxpy},
+    {"dscal", 2, nif_dscal}
 };
 
 ERL_NIF_INIT(numerl, nif_funcs, load, NULL, upgrade, NULL)

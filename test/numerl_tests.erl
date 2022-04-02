@@ -88,6 +88,11 @@ daxpy_test()->
     true = numerl:daxpy(1, CM0, CM1),
     true = numerl:equals(CM1, numerl:matrix([[3, 6],[9, 12]])).
 
+dscal_test()->
+    CM0 = numerl:matrix([[1, 2], [3, 4]]),
+    true = numerl:dscal(1.5, CM0),
+    true = numerl:equals(CM0, numerl:matrix([[1.5, 3],[4.5, 6]])).
+
 
 sub_test()->
     CM0 = numerl:matrix([[1, 2], [3, 4]]),
