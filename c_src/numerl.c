@@ -179,6 +179,10 @@ int enif_get(ErlNifEnv* env, const ERL_NIF_TERM* erl_terms, const char* format, 
                 //Reads an int.
                 valid = enif_get_int(env, *erl_terms, va_arg(valist, int*));
                 break;
+
+            case 'c':
+                valid = enif_get_atom(env, *erl_terms, va_arg(valist, char*), 3, ERL_NIF_LATIN1);
+                break;
             
             default:
                 //Unknown type... give an error.
@@ -751,12 +755,37 @@ ERL_NIF_TERM nif_dgemm(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
     
     Matrix C = matrix_alloc(A.n_rows, B.n_cols);
 
+    
+
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
     A.n_rows, B.n_cols, A.n_cols,
     alpha, A.content, A.n_cols, B.content, B.n_cols, 
     beta, C.content, C.n_cols);
 
     return matrix_to_erl(env, C);
+}
+
+//Arguments: double alpha, matrix A, matrix B, double beta, matrix C
+ERL_NIF_TERM nif_dgemm2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
+    int TransA, TransB;
+    Matrix A, B, C;
+    double alpha;
+    double beta;
+
+    if(!enif_get(env, argv, "iinmmnm", &TransA, &TransB, &alpha, &A, &B, &beta, &C)
+            || A.n_cols != B.n_rows){
+
+        return enif_make_badarg(env);
+    }
+
+    cblas_dgemm(CblasRowMajor,
+    TransA ? CblasTrans : CblasNoTrans,
+    TransB ? CblasTrans : CblasNoTrans,
+    A.n_rows, B.n_cols, A.n_cols,
+    alpha, A.content, A.n_cols, B.content, B.n_cols, 
+    beta, C.content, C.n_cols);
+
+    return atom_true;
 }
 
 ERL_NIF_TERM nif_dscal(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
@@ -795,7 +824,8 @@ ErlNifFunc nif_funcs[] = {
     {"vec_dot", 2, nif_ddot},
     {"dot", 2, nif_dgemm},
     {"daxpy", 3, nif_daxpy},
-    {"dscal", 2, nif_dscal}
+    {"dscal", 2, nif_dscal},
+    {"dgemm", 7, nif_dgemm2}
 };
 
 ERL_NIF_INIT(numerl, nif_funcs, load, NULL, upgrade, NULL)

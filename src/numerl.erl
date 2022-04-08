@@ -1,6 +1,6 @@
 -module(numerl).
 -on_load(init/0).
--export([ eval/1, eye/1, zeros/2, equals/2, add/2, sub/2,mult/2, divide/2, matrix/1, rnd_matrix/1, get/3, at/2, mtfli/1, mtfl/1, row/2, col/2, transpose/1, inv/1, nrm2/1, vec_dot/2, dot/2, daxpy/3, dscal/2]).
+-export([ eval/1, eye/1, zeros/2, equals/2, add/2, sub/2,mult/2, divide/2, matrix/1, rnd_matrix/1, get/3, at/2, mtfli/1, mtfl/1, row/2, col/2, transpose/1, inv/1, nrm2/1, vec_dot/2, dot/2, daxpy/3, dscal/2, dgemm/7]).
 
 %Matrices are represented as such:
 %-record(matrix, {n_rows, n_cols, bin}).
@@ -134,4 +134,7 @@ daxpy(_,_,_)->
     nif_not_loaded.
 
 dscal(_,_) ->
+    nif_not_loaded.
+
+dgemm(_,_,_,_,_,_,_) ->
     nif_not_loaded.
