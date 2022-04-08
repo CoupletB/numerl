@@ -111,12 +111,12 @@ mult_test()->
     true = numerl:equals(CM4, numerl:mult(CM0,2)).
 
 dgemm_test()->
-    CM0 = numerl:matrix([[1, 2], [3, 4]]),
-    CM1 = numerl:matrix([[2, 4], [6, 8]]),
+    CM0 = numerl:matrix([[1, 2, 1], [3, 4, 1]]),
+    CM1 = numerl:matrix([[2, 4], [6, 8], [1, 2]]),
     CM3 = numerl:matrix([[2, 8], [18, 32]]),
     CM4 = numerl:matrix([[2, 4], [6, 8]]),
     M0 = numerl:zeros(2,2),
-    numerl:dgemm(1, 1, 1.0, CM0, CM1, 0.0, M0),
+    numerl:dgemm(0, 0, 1.0, CM0, CM1, 0.0, M0),
     erlang:display(numerl:mtfli(M0)).
     %true = numerl:equals(CM3, M0).
     
