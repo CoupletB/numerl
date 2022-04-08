@@ -772,8 +772,7 @@ ERL_NIF_TERM nif_dgemm2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
     double alpha;
     double beta;
 
-    if(!enif_get(env, argv, "iinmmnm", &TransA, &TransB, &alpha, &A, &B, &beta, &C)
-            || A.n_cols != B.n_rows){
+    if(!enif_get(env, argv, "iinmmnm", &TransA, &TransB, &alpha, &A, &B, &beta, &C)){
 
         return enif_make_badarg(env);
     }
