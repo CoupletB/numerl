@@ -113,12 +113,12 @@ mult_test()->
 dgemm_test()->
     CM0 = numerl:matrix([[1, 2, 1], [3, 4, 1]]),
     CM1 = numerl:matrix([[2, 4], [6, 8], [1, 2]]),
-    CM3 = numerl:matrix([[2, 8], [18, 32]]),
+    CM3 = numerl:matrix([[15, 22], [31, 46]]),
     CM4 = numerl:matrix([[2, 4], [6, 8]]),
     M0 = numerl:zeros(2,2),
     numerl:dgemm(0, 0, 1.0, CM0, CM1, 0.0, M0),
-    erlang:display(numerl:mtfli(M0)).
-    %true = numerl:equals(CM3, M0).
+    %erlang:display(numerl:mtfli(M0)).
+    true = numerl:equals(CM3, M0).
     
 divide_test()->
     CM0 = numerl:matrix([[1, 2], [3, 4]]),
@@ -145,12 +145,12 @@ divide_test()->
 
 tr_test() ->
     CM0 = numerl:eye(2),
-    CM0 = numerl:transpose(CM0),
+    true = numerl:equals(numerl:transpose(CM0),CM0),
     CM1 = numerl:matrix([[1.0, 2.0],[3.0, 4.0]]),
     CM2 = numerl:matrix([[1.0, 3.0], [2.0, 4.0]]),
     CM3 = numerl:matrix([[1.0, 2.0]]),
     true = numerl:equals(CM3, numerl:transpose(numerl:matrix([[1.0], [2.0]]))),
-    CM1 = numerl:transpose(CM2).
+    true = numerl:equals(numerl:transpose(CM2),CM1).
 
 inv_test() ->
     %Might cause an error if randomly generated matrix is singular.
@@ -211,7 +211,3 @@ memleak_test()->
     {memory, M_second_run} = erlang:process_info(self(), memory),
 
     M_first_run >= M_second_run.
-
-
-    
-    

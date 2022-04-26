@@ -30,6 +30,8 @@ ERL_NIF_TERM atom_nok;
 ERL_NIF_TERM atom_true;
 ERL_NIF_TERM atom_false;
 ERL_NIF_TERM atom_matrix;
+ErlNifResourceType *mat_resource;
+ErlNifResourceType *doubleArray;
 
 ErlNifResourceType *MULT_YIELDING_ARG = NULL;
 
@@ -38,6 +40,9 @@ int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info){
     atom_true = enif_make_atom(env, "true\0");
     atom_false = enif_make_atom(env, "false\0");
     atom_matrix = enif_make_atom(env, "matrix\0");
+
+    mat_resource = enif_open_resource_type(env, "numerl", "mat resource", NULL, ERL_NIF_RT_CREATE, NULL);
+    doubleArray = enif_open_resource_type(env, "numerl", "double array", NULL, ERL_NIF_RT_CREATE, NULL);
     return 0;
 }
 
@@ -54,96 +59,90 @@ typedef struct{
     double* content;
 
     //Erlang binary containing the matrix.
-    ErlNifBinary bin;
+    //ErlNifBinary bin;
 } Matrix;
 
 
 //Access asked coordinates of matrix
-double* matrix_at(int col, int row, Matrix m){
-    return &m.content[row*m.n_cols + col];
+double* matrix_at(int col, int row, Matrix *m){
+    return &(m->content[row*m->n_cols + col]);
 }
 
 //Allocates memory space of for matrix of dimensions n_rows, n_cols.
 //The matrix_content can be modified, until a call to array_to_erl.
 //Matrix content is stored in row major format.
-Matrix matrix_alloc(int n_rows, int n_cols){
-    ErlNifBinary bin;
+static Matrix *matrix_alloc(int n_rows, int n_cols){
 
-    enif_alloc_binary(sizeof(double)*n_rows*n_cols, &bin);
+    Matrix *matrix = enif_alloc_resource(mat_resource, sizeof(double *)+2*sizeof(int));
+    double *content = enif_alloc_resource(doubleArray, n_rows*n_cols*sizeof(double));
 
-    Matrix matrix;
-    matrix.n_cols = n_cols;
-    matrix.n_rows = n_rows;
-    matrix.bin = bin;
-    matrix.content = (double*) bin.data;
+    matrix->n_cols = n_cols;
+    matrix->n_rows = n_rows;
+    matrix->content = content;
 
     return matrix;
 }
 
 //Creates a duplicate of a matrix.
 //This duplicate can be modified until uploaded.
-Matrix matrix_dup(Matrix m){
-    Matrix d = matrix_alloc(m.n_rows, m.n_cols);
-    memcpy(d.content, m.content, d.bin.size);
+Matrix *matrix_dup(Matrix *m){
+    Matrix *d = matrix_alloc(m->n_rows, m->n_cols);
+    memcpy(d->content, m->content, m->n_rows*m->n_cols*sizeof(double));
     return d;
 }
 
 //Free an allocated matrix that was not sent back to Erlang.
-void matrix_free(Matrix m){
-    enif_release_binary(&m.bin);
+void matrix_free(Matrix *m){
+    enif_release_resource(m);
 }
 
 //Constructs a matrix erlang term.
 //No modifications can be made afterwards to the matrix.
-ERL_NIF_TERM matrix_to_erl(ErlNifEnv* env, Matrix m){
-    ERL_NIF_TERM term = enif_make_binary(env, &m.bin);
-    return enif_make_tuple4(env, atom_matrix, enif_make_int(env,m.n_rows), enif_make_int(env,m.n_cols), term);
+ERL_NIF_TERM matrix_to_erl(ErlNifEnv* env, Matrix *m){
+    ERL_NIF_TERM term = enif_make_tuple2(env,enif_make_resource(env, m), enif_make_resource(env, m->content));
+    enif_release_resource(m);
+    return term;
 }
 
 int enif_is_matrix(ErlNifEnv* env, ERL_NIF_TERM term){
+    Matrix *dest;
     int arity;
-    const ERL_NIF_TERM* content;
-
-    if(!enif_is_tuple(env, term))
+    ERL_NIF_TERM *content;
+    if(!enif_get_tuple(env, term, &arity, &content))
         return 0;
-
-    enif_get_tuple(env, term, &arity, &content);
-    if(arity != 4)
+    if(!enif_get_resource(env,content[0],mat_resource,&dest))
         return 0;
-    
-    if(content[0] != atom_matrix
-        || !enif_is_number(env, content[1])
-        || !enif_is_number(env, content[2])
-        || !enif_is_binary(env, content[3]))
-            
-            return 0;
+    if(!enif_get_resource(env,content[1],doubleArray,&dest->content))
+        return 0;
     return 1;
 }
 
 //Reads an erlang term as a matrix.
 //As such, no modifications can be made to the read matrix.
 //Returns true if it was possible to read a matrix, false otherwise
-int enif_get_matrix(ErlNifEnv* env, ERL_NIF_TERM term, Matrix *dest){
-    
+int enif_get_matrix(ErlNifEnv* env, ERL_NIF_TERM term, Matrix **dest){
     int arity;
-    const ERL_NIF_TERM* content;
-
-    if(!enif_is_tuple(env, term))
+    ERL_NIF_TERM *content;
+    if(!enif_get_tuple(env, term, &arity, &content))
         return 0;
-
-    enif_get_tuple(env, term, &arity, &content);
-    if(arity != 4)
+    if(!enif_get_resource(env,content[0],mat_resource, dest))
         return 0;
-    
-    if(content[0] != atom_matrix
-        || !enif_get_int(env, content[1], &dest->n_rows)
-        || !enif_get_int(env, content[2], &dest->n_cols)
-        || !enif_inspect_binary(env, content[3], &dest->bin))
-    {
-        return 0;
+    char str[100];
+    debug_write("ici");
+    sprintf(str, "try %d", (*dest)->n_cols);
+    debug_write(str);
+    debug_write("ici");
+    sprintf(str, "try %d", (*dest)->n_rows);
+    debug_write(str);
+    for(int i=0;i<(*dest)->n_cols*(*dest)->n_rows;i++){
+        debug_write("ici");
+        //dest->content[i] = (double) 3;
+        sprintf(str, "try %f", (*dest)->content[i]);
+        
+        debug_write(str);
     }
-
-    dest->content = (double*) (dest->bin.data);    
+    if(!enif_get_resource(env,content[1],doubleArray,&((*dest)->content)))
+        return 0;
     return 1;
 }
 
@@ -172,7 +171,7 @@ int enif_get(ErlNifEnv* env, const ERL_NIF_TERM* erl_terms, const char* format, 
 
             case 'm':
                 //Reads a matrix.
-                valid = enif_get_matrix(env, *erl_terms, va_arg(valist, Matrix*));
+                valid = enif_get_matrix(env, *erl_terms, va_arg(valist, Matrix**));
                 break;
             
             case 'i':
@@ -209,11 +208,13 @@ int enif_get(ErlNifEnv* env, const ERL_NIF_TERM* erl_terms, const char* format, 
 ERL_NIF_TERM nif_matrix(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
     unsigned n_rows, line_length, dest = 0, n_cols = -1;
     ERL_NIF_TERM list = argv[0], row, elem;
-    Matrix m;
+    Matrix *m;
 
     //Reading incoming matrix.
     if(!enif_get_list_length(env, list, &n_rows) && n_rows > 0)
         return enif_make_badarg(env);
+
+    char str[100];
 
     for(int i = 0; enif_get_list_cell(env, list, &row, &list); i++){
         if(!enif_get_list_length(env, row, &line_length)) 
@@ -229,10 +230,10 @@ ERL_NIF_TERM nif_matrix(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
             return enif_make_badarg(env);
 
         for(int j = 0; enif_get_list_cell(env, row, &elem, &row); j++){
-            if(!enif_get_double(env, elem, &m.content[dest])){
+            if(!enif_get_double(env, elem, &(m->content[dest]))){
                 int i;
                 if(enif_get_int(env, elem, &i)){
-                    m.content[dest] = (double) i;
+                    m->content[dest] = (double) i;
                 }
                 else{
                     return enif_make_badarg(env);
@@ -255,18 +256,18 @@ void debug_write(char info[]){
     fclose(fp);
 }
 
-void debug_write_matrix(Matrix m){
-    char *content = enif_alloc(sizeof(char)*((2*m.n_cols-1)*m.n_rows*PRECISION + m.n_rows*2 + 3));
+void debug_write_matrix(Matrix *m){
+    char *content = enif_alloc(sizeof(char)*((2*m->n_cols-1)*m->n_rows*PRECISION + m->n_rows*2 + 3));
     content[0] = '[';
     content[1] = '\0';
     char converted[PRECISION];
 
-    for(int i=0; i<m.n_rows; i++){
+    for(int i=0; i<m->n_rows; i++){
         strcat(content, "[");
-        for(int j = 0; j<m.n_cols; j++){
-            snprintf(converted, PRECISION-1, "%.5lf", m.content[i*m.n_cols+j]);
+        for(int j = 0; j<m->n_cols; j++){
+            snprintf(converted, PRECISION-1, "%.5lf", m->content[i*m->n_cols+j]);
             strcat(content, converted);
-            if(j != m.n_cols-1)
+            if(j != m->n_cols-1)
                 strcat(content, " ");
         }
         strcat(content, "]");
@@ -284,75 +285,87 @@ void debug_write_matrix(Matrix m){
 //@return: double, at cord Matrix(m,n).
 ERL_NIF_TERM nif_get(ErlNifEnv * env, int argc, const ERL_NIF_TERM argv[]){
     int m,n;
-    Matrix matrix;
+    Matrix *matrix;
+
+    debug_write("1");
 
     if(!enif_get(env, argv, "iim", &m, &n, &matrix))
         return enif_make_badarg(env);
+    debug_write("2");
     m--, n--;
+    char str[100];
+    debug_write("ici");
+    sprintf(str, "try %d", matrix->n_cols);
+    debug_write(str);
 
-    if(m < 0 || m >= matrix.n_rows || n < 0 || n >= matrix.n_cols)
-        return enif_make_badarg(env);
+    //int test = (m < 0 || m >= matrix->n_rows || n < 0 || n >= matrix->n_cols);
+    sprintf(str,"rows : %d, cols: %d", matrix->n_rows, matrix->n_cols);
+    debug_write(str);
+    if(m < 0 || m >= matrix->n_rows || n < 0 || n >= matrix->n_cols)
+        {debug_write("badarg");
+        return enif_make_badarg(env);}
 
-    int index = m*matrix.n_cols+n;
-    return enif_make_double(env, matrix.content[index]);
+    debug_write("3");
+    int index = m*matrix->n_cols+n;
+    return enif_make_double(env, matrix->content[index]);
 }
 
 ERL_NIF_TERM nif_at(ErlNifEnv * env, int argc, const ERL_NIF_TERM argv[]){
     int n;
-    Matrix matrix;
+    Matrix *matrix;
 
     if(!enif_get(env, argv, "mi", &matrix, &n))
         return enif_make_badarg(env);
     n--;
 
-    if( n < 0 || n >= matrix.n_cols * matrix.n_rows)
+    if( n < 0 || n >= matrix->n_cols * matrix->n_rows)
         return enif_make_badarg(env);
 
-    return enif_make_double(env, matrix.content[n]);
+    return enif_make_double(env, matrix->content[n]);
 }
 
 //Matrix to flattened list of ints
 ERL_NIF_TERM nif_mtfli(ErlNifEnv * env, int argc, const ERL_NIF_TERM argv[]){
-    Matrix M;
+    Matrix *M;
     if(!enif_get(env, argv, "m", &M)){
         return enif_make_badarg(env);
     }
 
-    ERL_NIF_TERM *mat = enif_alloc(sizeof(ERL_NIF_TERM)*M.n_rows);
+    ERL_NIF_TERM *mat = enif_alloc(sizeof(ERL_NIF_TERM)*M->n_rows);
     int index = 0;
-    for (int i=0;i<M.n_rows;i++){
-        ERL_NIF_TERM *row = enif_alloc(sizeof(ERL_NIF_TERM)*M.n_cols);
-        for (int j=0;j<M.n_cols;j++){
-            row[j] = enif_make_int(env, (int)M.content[index]);
+    for (int i=0;i<M->n_rows;i++){
+        ERL_NIF_TERM *row = enif_alloc(sizeof(ERL_NIF_TERM)*M->n_cols);
+        for (int j=0;j<M->n_cols;j++){
+            row[j] = enif_make_int(env, (int)M->content[index]);
             index++;
         }
-        mat[i]=enif_make_list_from_array(env, row, M.n_cols);
+        mat[i]=enif_make_list_from_array(env, row, M->n_cols);
     }
     
-    ERL_NIF_TERM result = enif_make_list_from_array(env, mat, M.n_rows);
+    ERL_NIF_TERM result = enif_make_list_from_array(env, mat, M->n_rows);
     enif_free(mat);
     return result;
 }
 
 //Matrix to flattened list of ints
 ERL_NIF_TERM nif_mtfl(ErlNifEnv * env, int argc, const ERL_NIF_TERM argv[]){
-    Matrix M;
+    Matrix *M;
     if(!enif_get(env, argv, "m", &M)){
         return enif_make_badarg(env);
     }
 
-    ERL_NIF_TERM *mat = enif_alloc(sizeof(ERL_NIF_TERM)*M.n_rows);
+    ERL_NIF_TERM *mat = enif_alloc(sizeof(ERL_NIF_TERM)*M->n_rows);
     int index = 0;
-    for (int i=0;i<M.n_rows;i++){
-        ERL_NIF_TERM *row = enif_alloc(sizeof(ERL_NIF_TERM)*M.n_cols);
-        for (int j=0;j<M.n_cols;j++){
-            row[j] = enif_make_double(env, (double) M.content[index]);
+    for (int i=0;i<M->n_rows;i++){
+        ERL_NIF_TERM *row = enif_alloc(sizeof(ERL_NIF_TERM)*M->n_cols);
+        for (int j=0;j<M->n_cols;j++){
+            row[j] = enif_make_double(env, (double) M->content[index]);
             index++;
         }
-        mat[i]=enif_make_list_from_array(env, row, M.n_cols);
+        mat[i]=enif_make_list_from_array(env, row, M->n_cols);
     }
     
-    ERL_NIF_TERM result = enif_make_list_from_array(env, mat, M.n_rows);
+    ERL_NIF_TERM result = enif_make_list_from_array(env, mat, M->n_rows);
     enif_free(mat);
     return result;
 }
@@ -371,17 +384,17 @@ int equal_ad(double* a, double* b, int size){
 //@arg 1: Array.
 //@return: true if arrays share content, false if they have different content || size..
 ERL_NIF_TERM nif_equals(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
-    Matrix a,b;
+    Matrix *a,*b;
 
     if(!enif_get(env, argv, "mm", &a, &b))
         return atom_false;
 
     //Compare number of columns and rows
-    if((a.n_cols != b.n_cols || a.n_rows != b.n_rows))
+    if((a->n_cols != b->n_cols || a->n_rows != b->n_rows))
         return atom_false;
 
     //Compare content of arrays
-    if(!equal_ad(a.content, b.content, a.n_cols*a.n_rows))
+    if(!equal_ad(a->content, b->content, a->n_cols*a->n_rows))
         return atom_false;
     
     return atom_true;
@@ -393,16 +406,16 @@ ERL_NIF_TERM nif_equals(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 //@return: returns an array, containing requested row.
 ERL_NIF_TERM nif_row(ErlNifEnv * env, int argc, const ERL_NIF_TERM argv[]){
     int row_req;
-    Matrix matrix;
+    Matrix *matrix;
     if(!enif_get(env, argv, "im", &row_req, &matrix))
         return enif_make_badarg(env);
 
     row_req--;
-    if(row_req<0 || row_req >= matrix.n_rows)
+    if(row_req<0 || row_req >= matrix->n_rows)
         return enif_make_badarg(env);
 
-    Matrix row = matrix_alloc(1, matrix.n_cols);
-    memcpy(row.content, matrix.content + (row_req * matrix.n_cols), matrix.n_cols*sizeof(double));
+    Matrix *row = matrix_alloc(1, matrix->n_cols);
+    memcpy(row->content, matrix->content + (row_req * matrix->n_cols), matrix->n_cols*sizeof(double));
 
     return matrix_to_erl(env, row);
 }
@@ -413,19 +426,19 @@ ERL_NIF_TERM nif_row(ErlNifEnv * env, int argc, const ERL_NIF_TERM argv[]){
 //@return: returns an array, containing requested col.
 ERL_NIF_TERM nif_col(ErlNifEnv * env, int argc, const ERL_NIF_TERM argv[]){
     int col_req;
-    Matrix matrix;
+    Matrix *matrix;
     if(!enif_get(env, argv, "im", &col_req, &matrix))
         return enif_make_badarg(env);
 
     col_req--;    
-    if(col_req<0 || col_req >= matrix.n_cols)
+    if(col_req<0 || col_req >= matrix->n_cols)
         return enif_make_badarg(env);
 
 
-    Matrix col = matrix_alloc(matrix.n_rows, 1);
+    Matrix *col = matrix_alloc(matrix->n_rows, 1);
 
-    for(int i = 0; i < matrix.n_rows; i++){
-        col.content[i] = matrix.content[i * matrix.n_rows + col_req];
+    for(int i = 0; i < matrix->n_rows; i++){
+        col->content[i] = matrix->content[i * matrix->n_rows + col_req];
     }
 
     return matrix_to_erl(env, col);
@@ -440,14 +453,14 @@ ERL_NIF_TERM nif_zeros(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
     if(!enif_get(env, argv, "ii", &m, &n))
         return enif_make_badarg(env);
 
-    Matrix a = matrix_alloc(m,n);
-    memset(a.content, 0, sizeof(double)*m*n);
+    Matrix *a = matrix_alloc(m,n);
+    memset(a->content, 0, sizeof(double)*m*n);
     return matrix_to_erl(env, a);
 }
 
 //@arg 0: int.
 //@arg 1: int.
-//@return: empty matrix of dimension [arg 0, arg 1]..
+//@return: eye matrix of dimension [arg 0, arg 1]..
 ERL_NIF_TERM nif_eye(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
     int m;
     if(!enif_get_int(env, argv[0], &m))
@@ -456,10 +469,10 @@ ERL_NIF_TERM nif_eye(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
     if(m <= 0)
         return enif_make_badarg(env);
 
-    Matrix a = matrix_alloc(m,m);
-    memset(a.content, 0, sizeof(double)*m*m);
+    Matrix *a = matrix_alloc(m,m);
+    memset(a->content, 0, sizeof(double)*m*m);
     for(int i = 0; i<m; i++){
-        a.content[i*m+i] = 1.0;
+        a->content[i*m+i] = 1.0;
     }
     return matrix_to_erl(env, a);
 }
@@ -467,25 +480,25 @@ ERL_NIF_TERM nif_eye(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 //Either element-wise multiplication, or multiplication of a matrix by a number.
 ERL_NIF_TERM nif_mult(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 
-    Matrix a,b;
+    Matrix *a,*b;
     double c;
     
     if(enif_get(env, argv, "mn", &a, &c)){
-        Matrix d = matrix_alloc(a.n_rows, a.n_cols);
+        Matrix *d = matrix_alloc(a->n_rows, a->n_cols);
 
-        for(int i = 0; i<a.n_cols*a.n_rows; i++){
-            d.content[i] = a.content[i] * c;
+        for(int i = 0; i<a->n_cols*a->n_rows; i++){
+            d->content[i] = a->content[i] * c;
         }
         return matrix_to_erl(env, d);
     }
     else 
     if(enif_get(env, argv, "mm", &a, &b)
-            && a.n_rows*a.n_cols == b.n_rows*b.n_cols){
+            && a->n_rows*a->n_cols == b->n_rows*b->n_cols){
         
-        Matrix d = matrix_alloc(a.n_rows, a.n_cols);
+        Matrix *d = matrix_alloc(a->n_rows, a->n_cols);
 
-        for(int i = 0; i < a.n_rows*a.n_cols; i++){
-            d.content[i] = a.content[i] * b.content[i];
+        for(int i = 0; i < a->n_rows*a->n_cols; i++){
+            d->content[i] = a->content[i] * b->content[i];
         }
         return matrix_to_erl(env, d);
     }
@@ -497,25 +510,25 @@ ERL_NIF_TERM nif_mult(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 //Either element-wise addition, or addition of a matrix by a number.
 ERL_NIF_TERM nif_add(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 
-    Matrix a,b;
+    Matrix *a,*b;
     double c;
     
     if(enif_get(env, argv, "mn", &a, &c)){
-        Matrix d = matrix_alloc(a.n_rows, a.n_cols);
+        Matrix *d = matrix_alloc(a->n_rows, a->n_cols);
 
-        for(int i = 0; i<a.n_cols*a.n_rows; i++){
-            d.content[i] = a.content[i] + c;
+        for(int i = 0; i<a->n_cols*a->n_rows; i++){
+            d->content[i] = a->content[i] + c;
         }
         return matrix_to_erl(env, d);
     }
     else 
     if(enif_get(env, argv, "mm", &a, &b)
-            && a.n_rows*a.n_cols == b.n_rows*b.n_cols){
+            && a->n_rows*(a->n_cols) == b->n_rows*b->n_cols){
         
-        Matrix d = matrix_alloc(a.n_rows, a.n_cols);
+        Matrix *d = matrix_alloc(a->n_rows, a->n_cols);
 
-        for(int i = 0; i < a.n_rows*a.n_cols; i++){
-            d.content[i] = a.content[i] + b.content[i];
+        for(int i = 0; i < a->n_rows*a->n_cols; i++){
+            d->content[i] = a->content[i] + b->content[i];
         }
         return matrix_to_erl(env, d);
     }
@@ -527,25 +540,25 @@ ERL_NIF_TERM nif_add(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 //Either element-wise subtraction, or subtraction of a matrix by a number.
 ERL_NIF_TERM nif_sub(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 
-    Matrix a,b;
+    Matrix *a,*b;
     double c;
     
     if(enif_get(env, argv, "mn", &a, &c)){
-        Matrix d = matrix_alloc(a.n_rows, a.n_cols);
+        Matrix *d = matrix_alloc(a->n_rows, a->n_cols);
 
-        for(int i = 0; i<a.n_cols*a.n_rows; i++){
-            d.content[i] = a.content[i] - c;
+        for(int i = 0; i<a->n_cols*a->n_rows; i++){
+            d->content[i] = a->content[i] - c;
         }
         return matrix_to_erl(env, d);
     }
     else 
     if(enif_get(env, argv, "mm", &a, &b)
-            && a.n_rows*a.n_cols == b.n_rows*b.n_cols){
+            && a->n_rows*a->n_cols == b->n_rows*b->n_cols){
         
-        Matrix d = matrix_alloc(a.n_rows, a.n_cols);
+        Matrix *d = matrix_alloc(a->n_rows, a->n_cols);
 
-        for(int i = 0; i < a.n_rows*a.n_cols; i++){
-            d.content[i] = a.content[i] - b.content[i];
+        for(int i = 0; i < a->n_rows*a->n_cols; i++){
+            d->content[i] = a->content[i] - b->content[i];
         }
         return matrix_to_erl(env, d);
     }
@@ -557,31 +570,31 @@ ERL_NIF_TERM nif_sub(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 //Either element-wise division, or division of a matrix by a number.
 ERL_NIF_TERM nif_divide(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 
-    Matrix a,b;
+    Matrix *a,*b;
     double c;
     
     if(enif_get(env, argv, "mn", &a, &c)){
         
         if(c!=0.0){
-            Matrix d = matrix_alloc(a.n_rows, a.n_cols);
+            Matrix *d = matrix_alloc(a->n_rows, a->n_cols);
 
-            for(int i = 0; i<a.n_cols*a.n_rows; i++){
-                d.content[i] = a.content[i] / c;
+            for(int i = 0; i<a->n_cols*a->n_rows; i++){
+                d->content[i] = a->content[i] / c;
             }
             return matrix_to_erl(env, d);
         }
     }
     else if(enif_get(env, argv, "mm", &a, &b)
-            && a.n_rows*a.n_cols == b.n_rows*b.n_cols){
+            && a->n_rows*a->n_cols == b->n_rows*b->n_cols){
         
-        Matrix d = matrix_alloc(a.n_rows, a.n_cols);
+        Matrix *d = matrix_alloc(a->n_rows, a->n_cols);
 
-        for(int i = 0; i < a.n_rows*a.n_cols; i++){
-            if(b.content[i] == 0.0){
+        for(int i = 0; i < a->n_rows*a->n_cols; i++){
+            if(b->content[i] == 0.0){
                 return enif_make_badarg(env);
             }
             else{
-                d.content[i] = a.content[i] / b.content[i];
+                d->content[i] = a->content[i] / b->content[i];
             }
         }
         return matrix_to_erl(env, d);
@@ -592,19 +605,19 @@ ERL_NIF_TERM nif_divide(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 
 
 //Transpose of a matrix.
-Matrix tr(Matrix a){
-    Matrix result = matrix_alloc(a.n_cols ,a.n_rows);
+Matrix *tr(Matrix *a){
+    Matrix *result = matrix_alloc(a->n_cols ,a->n_rows);
 
-    for(int j = 0; j < a.n_rows; j++){
-        for(int i = 0; i < a.n_cols; i++){
-            result.content[i*result.n_cols+j] = a.content[j*a.n_cols+i];
+    for(int j = 0; j < a->n_rows; j++){
+        for(int i = 0; i < a->n_cols; i++){
+            result->content[i*result->n_cols+j] = a->content[j*a->n_cols+i];
         }
     }
     return result;
 }
 ERL_NIF_TERM nif_transpose(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 
-    Matrix a;
+    Matrix *a;
     if(!enif_get_matrix(env, argv[0], &a))
         return enif_make_badarg(env);
 
@@ -615,31 +628,31 @@ ERL_NIF_TERM nif_transpose(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 //arg0: Matrix.
 ERL_NIF_TERM nif_inv(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
     
-    Matrix a;
+    Matrix *a;
     if(!enif_get_matrix(env, argv[0], &a))
         return enif_make_badarg(env);
 
-    Matrix inv = matrix_dup(a);
+    Matrix *inv = matrix_dup(a);
 
-    int N = a.n_rows;
+    int N = a->n_rows;
     int *IPIV = enif_alloc(sizeof(int)*N);
     int LWORK = N*N;
     double* WORK = enif_alloc(sizeof(int)*N*N);
     int INFO1, INFO2;
 
-    dgetrf_(&N,&N,inv.content,&N,IPIV,&INFO1);
-    dgetri_(&N,inv.content,&N,IPIV,WORK,&LWORK,&INFO2);
+    dgetrf_(&N,&N,inv->content,&N,IPIV,&INFO1);
+    dgetri_(&N,inv->content,&N,IPIV,WORK,&LWORK,&INFO2);
     
     enif_free(IPIV);
     enif_free(WORK);
     ERL_NIF_TERM result;
 
     if(INFO1 > 0 || INFO2 > 0){
-        result = enif_raise_exception(env, enif_make_atom(env, "nif_inv: could not invert singular matrix."));
+        result = enif_raise_exception(env, enif_make_atom(env, "nif_inv: could not invert singular matrix->"));
         matrix_free(inv);
     }
     else if(INFO1 < 0 || INFO2 < 0){
-        result = enif_raise_exception(env, enif_make_atom(env, "nif_inv: LAPACK error."));
+        result = enif_raise_exception(env, enif_make_atom(env, "nif_inv: LAPACK error->"));
         matrix_free(inv);
     }
     else result = matrix_to_erl(env, inv);
@@ -657,13 +670,13 @@ ERL_NIF_TERM nif_inv(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 
 //Calculates the norm of input vector/matrix, aka the square root of the sum of its composants.
 ERL_NIF_TERM nif_dnrm2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
-    Matrix x;
+    Matrix *x;
 
     if(!enif_get(env, argv, "m", &x)){
         return enif_make_badarg(env);
     }
 
-    double result = cblas_dnrm2(x.n_cols*x.n_rows, x.content, 1);
+    double result = cblas_dnrm2(x->n_cols*x->n_rows, x->content, 1);
 
     return enif_make_double(env, result);
 }
@@ -672,18 +685,18 @@ ERL_NIF_TERM nif_dnrm2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 //Performs blas_ddot
 //Input: two vectors / matrices
 ERL_NIF_TERM nif_ddot(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
-    Matrix x,y;
+    Matrix *x,*y;
 
     if(!enif_get(env, argv, "mm", &x, &y)){
         return enif_make_badarg(env);
     }
 
-    int n = fmin(x.n_rows*x.n_cols, y.n_rows*y.n_cols);
+    int n = fmin(x->n_rows*x->n_cols, y->n_rows*y->n_cols);
     if(n <= 0){
         return enif_make_badarg(env);
     }
 
-    double result = cblas_ddot(n, x.content, 1, y.content, 1);
+    double result = cblas_ddot(n, x->content, 1, y->content, 1);
 
     return enif_make_double(env, result);
 }
@@ -694,7 +707,7 @@ ERL_NIF_TERM nif_ddot(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 //Output: a vector of same dimension then Y, containing alpha X + Y
 //------------------------------------------------------------------------
 ERL_NIF_TERM nif_daxpy(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
-    Matrix x,y;
+    Matrix *x,*y;
     int n;
     double alpha;
 
@@ -702,13 +715,13 @@ ERL_NIF_TERM nif_daxpy(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
         return enif_make_badarg(env);
     }
 
-    n = x.n_cols*x.n_rows;
+    n = x->n_cols*x->n_rows;
 
-    if(n != y.n_cols*y.n_rows){
+    if(n != y->n_cols*y->n_rows){
         return enif_make_badarg(env);
     }
 
-    cblas_daxpy(n, alpha, x.content, 1, y.content, 1);
+    cblas_daxpy(n, alpha, x->content, 1, y->content, 1);
 
     return atom_true;
 }
@@ -717,9 +730,9 @@ ERL_NIF_TERM nif_daxpy(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 // Performs alpha*A*x + beta*y.
 // alpha, beta are numbers
 // A, x, y are matrices (x and y being vectors)
-// x and y are expected to have a length of A.n_cols
+// x and y are expected to have a length of A->n_cols
 ERL_NIF_TERM nif_dgemv(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
-    Matrix A,x,y;
+    Matrix *A,*x,*y;
     double alpha, beta;
 
     if(!enif_get(env, argv, "nmmnm", &alpha, &A, &x, &beta, &y)){
@@ -727,14 +740,14 @@ ERL_NIF_TERM nif_dgemv(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
     }
 
     //Check dimensions compatibility
-    int vec_length = fmin(fmax(x.n_cols, x.n_rows), fmax(y.n_cols, y.n_rows));
-    if(vec_length < A.n_cols || fmin(x.n_cols, x.n_rows) != 1 || fmin(y.n_cols, y.n_rows) != 1){
+    int vec_length = fmin(fmax(x->n_cols, x->n_rows), fmax(y->n_cols, y->n_rows));
+    if(vec_length < A->n_cols || fmin(x->n_cols, x->n_rows) != 1 || fmin(y->n_cols, y->n_rows) != 1){
         enif_make_badarg(env);
     }
 
-    Matrix ny = matrix_dup(y);
+    Matrix *ny = matrix_dup(y);
 
-    cblas_dgemv(CblasRowMajor, CblasNoTrans, A.n_rows, A.n_cols, alpha, A.content, A.n_rows, x.content, 1,  beta, ny.content, 1);
+    cblas_dgemv(CblasRowMajor, CblasNoTrans, A->n_rows, A->n_cols, alpha, A->content, A->n_rows, x->content, 1,  beta, ny->content, 1);
 
     return matrix_to_erl(env, ny);
 }
@@ -743,24 +756,24 @@ ERL_NIF_TERM nif_dgemv(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 
 //Arguments: double alpha, matrix A, matrix B, double beta, matrix C
 ERL_NIF_TERM nif_dgemm(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
-    Matrix A, B;
+    Matrix *A, *B;
     double alpha = 1.0;
     double beta = 0.0;
 
     if(!enif_get(env, argv, "mm", &A, &B)
-            || A.n_cols != B.n_rows){
+            || A->n_cols != B->n_rows){
 
         return enif_make_badarg(env);
     }
     
-    Matrix C = matrix_alloc(A.n_rows, B.n_cols);
+    Matrix *C = matrix_alloc(A->n_rows, B->n_cols);
 
     
 
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-    A.n_rows, B.n_cols, A.n_cols,
-    alpha, A.content, A.n_cols, B.content, B.n_cols,
-    beta, C.content, C.n_cols);
+    A->n_rows, B->n_cols, A->n_cols,
+    alpha, A->content, A->n_cols, B->content, B->n_cols,
+    beta, C->content, C->n_cols);
 
     return matrix_to_erl(env, C);
 }
@@ -768,7 +781,7 @@ ERL_NIF_TERM nif_dgemm(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
 //Arguments: double alpha, matrix A, matrix B, double beta, matrix C
 ERL_NIF_TERM nif_dgemm2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
     int TransA, TransB;
-    Matrix A, B, C;
+    Matrix *A, *B, *C;
     double alpha;
     double beta;
 
@@ -780,29 +793,29 @@ ERL_NIF_TERM nif_dgemm2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
     cblas_dgemm(CblasRowMajor,
     TransA ? CblasTrans : CblasNoTrans,
     TransB ? CblasTrans : CblasNoTrans,
-    TransA ? A.n_cols : A.n_rows,
-    TransB ? B.n_rows : B.n_cols, 
-    TransA ? A.n_rows : A.n_cols,
+    TransA ? A->n_cols : A->n_rows,
+    TransB ? B->n_rows : B->n_cols, 
+    TransA ? A->n_rows : A->n_cols,
     alpha, 
-    A.content,
-    A.n_cols,
-    B.content,
-    B.n_cols,
-    beta, C.content, C.n_cols);
+    A->content,
+    A->n_cols,
+    B->content,
+    B->n_cols,
+    beta, C->content, C->n_cols);
 
     return atom_true;
 }
 
 ERL_NIF_TERM nif_dscal(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
-    Matrix X;
+    Matrix *X;
     double alpha;
 
     if(!enif_get(env, argv, "nm", &alpha, &X)){
         return enif_make_badarg(env);
     }
 
-    int n = X.n_cols*X.n_rows;
-    cblas_dscal(n, alpha, X.content, 1);
+    int n = X->n_cols*X->n_rows;
+    cblas_dscal(n, alpha, X->content, 1);
     return atom_true;
 }
 
