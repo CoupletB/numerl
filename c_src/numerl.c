@@ -127,20 +127,6 @@ int enif_get_matrix(ErlNifEnv* env, ERL_NIF_TERM term, Matrix **dest){
         return 0;
     if(!enif_get_resource(env,content[0],mat_resource, dest))
         return 0;
-    char str[100];
-    debug_write("ici");
-    sprintf(str, "try %d", (*dest)->n_cols);
-    debug_write(str);
-    debug_write("ici");
-    sprintf(str, "try %d", (*dest)->n_rows);
-    debug_write(str);
-    for(int i=0;i<(*dest)->n_cols*(*dest)->n_rows;i++){
-        debug_write("ici");
-        //dest->content[i] = (double) 3;
-        sprintf(str, "try %f", (*dest)->content[i]);
-        
-        debug_write(str);
-    }
     if(!enif_get_resource(env,content[1],doubleArray,&((*dest)->content)))
         return 0;
     return 1;
@@ -287,25 +273,14 @@ ERL_NIF_TERM nif_get(ErlNifEnv * env, int argc, const ERL_NIF_TERM argv[]){
     int m,n;
     Matrix *matrix;
 
-    debug_write("1");
-
     if(!enif_get(env, argv, "iim", &m, &n, &matrix))
         return enif_make_badarg(env);
-    debug_write("2");
+
     m--, n--;
-    char str[100];
-    debug_write("ici");
-    sprintf(str, "try %d", matrix->n_cols);
-    debug_write(str);
 
-    //int test = (m < 0 || m >= matrix->n_rows || n < 0 || n >= matrix->n_cols);
-    sprintf(str,"rows : %d, cols: %d", matrix->n_rows, matrix->n_cols);
-    debug_write(str);
     if(m < 0 || m >= matrix->n_rows || n < 0 || n >= matrix->n_cols)
-        {debug_write("badarg");
-        return enif_make_badarg(env);}
+        return enif_make_badarg(env);
 
-    debug_write("3");
     int index = m*matrix->n_cols+n;
     return enif_make_double(env, matrix->content[index]);
 }
