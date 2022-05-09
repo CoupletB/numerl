@@ -794,6 +794,29 @@ ERL_NIF_TERM nif_dscal(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
     return atom_true;
 }
 
+ERL_NIF_TERM nif_copy(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
+    Matrix *X;
+
+    if(!enif_get(env, argv, "m", &X)){
+        return enif_make_badarg(env);
+    }
+
+    Matrix *Y = matrix_dup(X);
+    return matrix_to_erl(env, Y);
+}
+
+ERL_NIF_TERM nif_copy_shape(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
+    Matrix *X;
+
+    if(!enif_get(env, argv, "m", &X)){
+        return enif_make_badarg(env);
+    }
+
+    Matrix *a = matrix_alloc(X->n_rows,X->n_cols);
+    memset(a->content, 0, sizeof(double)*X->n_rows*X->n_cols);
+    return matrix_to_erl(env, a);
+}
+
 ErlNifFunc nif_funcs[] = {
     {"matrix", 1, nif_matrix},
     {"get", 3, nif_get},
@@ -811,6 +834,8 @@ ErlNifFunc nif_funcs[] = {
     {"divide", 2, nif_divide},
     {"transpose", 1, nif_transpose},
     {"inv", 1, nif_inv},
+    {"copy", 1, nif_copy},
+    {"copy_shape", 1, nif_copy_shape},
     
     //--- BLAS----------
     {"nrm2", 1, nif_dnrm2},

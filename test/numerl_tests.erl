@@ -177,6 +177,18 @@ dot_test()->
     B = numerl:matrix([[3,5],[5,4]]),
     true = numerl:equals(numerl:matrix([[22, 28],[16,18]]), numerl:dot(A,B)).
 
+copy_test() ->
+    A = numerl:matrix([[4,2],[2,2]]),
+    B = numerl:copy(A),
+    R = numerl:mtfl(B),
+    [[4.000000e+00,2.000000e+00],[2.000000e+00,2.000000e+00]] = R.
+
+copy_shape_test() ->
+    A = numerl:matrix([[4,2],[2,2]]),
+    B = numerl:copy_shape(A),
+    R = numerl:mtfl(B),
+    [[0.0, 0.0],[0.000000e+00,0.000000e+00]] = R.
+
 memleak_test()->
     %For input matrices of size 10: run all function once, check memory, run a couple more times, check if memory increase.
     N = 10,
