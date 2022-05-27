@@ -419,6 +419,16 @@ ERL_NIF_TERM nif_col(ErlNifEnv * env, int argc, const ERL_NIF_TERM argv[]){
     return matrix_to_erl(env, col);
 }
 
+//@arg 0: Matrix.
+//@return: the dimensions of the matrix as {n_rows, n_cols}.
+ERL_NIF_TERM nif_get_shape(ErlNifEnv * env, int argc, const ERL_NIF_TERM argv[]){
+    Matrix *matrix;
+    if(!enif_get(env, argv, "m", &matrix))
+        return enif_make_badarg(env);
+
+    return enif_make_tuple2(env, enif_make_int(env, matrix->n_rows), enif_make_int(env, matrix->n_cols));
+}
+
 
 //@arg 0: int.
 //@arg 1: int.
@@ -836,6 +846,7 @@ ErlNifFunc nif_funcs[] = {
     {"inv", 1, nif_inv},
     {"copy", 1, nif_copy},
     {"copy_shape", 1, nif_copy_shape},
+    {"get_shape", 1, nif_get_shape},
     
     //--- BLAS----------
     {"nrm2", 1, nif_dnrm2},

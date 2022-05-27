@@ -189,6 +189,10 @@ copy_shape_test() ->
     R = numerl:mtfl(B),
     [[0.0, 0.0],[0.000000e+00,0.000000e+00]] = R.
 
+get_shape_test() ->
+    A = numerl:matrix([[4,2,3],[2,2,1]]),
+    {2, 3} = numerl:get_shape(A).
+
 memleak_test()->
     %For input matrices of size 10: run all function once, check memory, run a couple more times, check if memory increase.
     N = 10,
